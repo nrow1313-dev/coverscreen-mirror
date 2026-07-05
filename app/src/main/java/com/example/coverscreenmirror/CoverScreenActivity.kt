@@ -35,6 +35,8 @@ class CoverScreenActivity : ComponentActivity() {
     private var virtualDisplay: VirtualDisplay? = null
     private var inputManagerInstance: Any? = null
     private var injectInputEventMethod: java.lang.reflect.Method? = null
+    private var shizukuMonitorThread: Thread? = null
+    private var isMonitoringShizuku = false
 
     private val stopReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -513,10 +515,12 @@ class CoverScreenActivity : ComponentActivity() {
         rootLayout.addView(buttonBar)
 
         setContentView(rootLayout)
+        startShizukuMonitor()
     }
 
     override fun onDestroy() {
         isRunningOnCover = false
+        stopShizukuMonitor()
         try {
             unregisterReceiver(stopReceiver)
         } catch (e: Exception) {
@@ -551,6 +555,39 @@ class CoverScreenActivity : ComponentActivity() {
             e.printStackTrace()
         }
         super.onDestroy()
+    }
+
+    private fun startShizukuMonitor() {
+        val prefs = getSharedPreferences("mirror_prefs", Context.MODE_PRIVATE)
+        val controlMode = prefs.getString("control_mode", "shizuku") ?: "shizuku"
+        if (controlMode != "shizuku") return
+
+        isMonitoringShizuku = true
+        shizukuMonitorThread = thread {
+            while (isMonitoringShizuku) {
+                try {
+                    Thread.sleep(2000)
+                    if (!checkShizukuPermission()) {
+                        android.util.Log.e("ScreenMirror", "Shizuku binder dead or permission revoked!")
+                        runOnUiThread {
+                            Toast.makeText(this@CoverScreenActivity, "Shizuku bị mất quyền/kết nối! Đang khôi phục màn hình...", Toast.LENGTH_LONG).show()
+                            stopMirroring()
+                        }
+                        break
+                    }
+                } catch (e: InterruptedException) {
+                    break
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    private fun stopShizukuMonitor() {
+        isMonitoringShizuku = false
+        shizukuMonitorThread?.interrupt()
+        shizukuMonitorThread = null
     }
 
     private fun bypassHiddenApiRestrictions() {
