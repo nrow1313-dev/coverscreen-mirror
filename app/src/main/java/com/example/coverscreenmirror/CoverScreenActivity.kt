@@ -33,12 +33,6 @@ class CoverScreenActivity : ComponentActivity() {
     private var inputManagerInstance: Any? = null
     private var injectInputEventMethod: java.lang.reflect.Method? = null
 
-    private val stopReceiver = object : android.content.BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            finish()
-        }
-    }
-
     private fun initInputInjector() {
         try {
             val serviceManagerClass = Class.forName("android.os.ServiceManager")
@@ -138,7 +132,6 @@ class CoverScreenActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         mode = intent.getStringExtra("MODE") ?: "MIRRORING"
-        registerReceiver(stopReceiver, android.content.IntentFilter("com.example.coverscreenmirror.ACTION_STOP"))
         val currentDisplay = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             this.display
         } else {
@@ -362,19 +355,77 @@ class CoverScreenActivity : ComponentActivity() {
         container.addView(surfaceView)
         rootLayout.addView(container)
 
-        setContentView(rootLayout)
+        // Glassmorphic buttons bar (vertical LinearLayout on the left side)
+        val density = resources.displayMetrics.density
+        val leftBarWidth = (coverWidth - targetWidth) / 2
+        val buttonBarWidthPx = (42 * density).toInt()
+        
+        // Centered inside the left black bar, fallback to 8dp margin if no black bar
+        val computedLeftMargin = if (leftBarWidth > buttonBarWidthPx) {
+            (leftBarWidth - buttonBarWidthPx) / 2
+        } else {
+            (8 * density).toInt()
+        }
 
-        CoverScreenAccessibilityService.instance?.showNavigationBar(true)
+        val buttonBar = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(Color.parseColor("#77000000")) // Translucent dark glass
+                cornerRadius = 16 * density
+            }
+            layoutParams = FrameLayout.LayoutParams(
+                buttonBarWidthPx,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+                leftMargin = computedLeftMargin
+            }
+            setPadding(0, (6 * density).toInt(), 0, (6 * density).toInt())
+        }
+
+        val btnSize = (38 * density).toInt()
+        val btnMargin = (4 * density).toInt()
+
+        val stopBtn = VectorButton(this, "stop") { stopMirroring() }.apply {
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
+                setMargins(0, btnMargin, 0, btnMargin)
+            }
+        }
+        val homeBtn = VectorButton(this, "home") {
+            performGlobalSystemAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME)
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
+                setMargins(0, btnMargin, 0, btnMargin)
+            }
+        }
+        val tabBtn = VectorButton(this, "tab") {
+            performGlobalSystemAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS)
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
+                setMargins(0, btnMargin, 0, btnMargin)
+            }
+        }
+        val backBtn = VectorButton(this, "back") {
+            performGlobalSystemAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK)
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(btnSize, btnSize).apply {
+                setMargins(0, btnMargin, 0, btnMargin)
+            }
+        }
+
+        buttonBar.addView(stopBtn)
+        buttonBar.addView(homeBtn)
+        buttonBar.addView(tabBtn)
+        buttonBar.addView(backBtn)
+
+        rootLayout.addView(buttonBar)
+
+        setContentView(rootLayout)
     }
 
     override fun onDestroy() {
         isRunningOnCover = false
-        try {
-            unregisterReceiver(stopReceiver)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        CoverScreenAccessibilityService.instance?.showNavigationBar(false)
         virtualDisplay?.release()
         virtualDisplay = null
         try {
