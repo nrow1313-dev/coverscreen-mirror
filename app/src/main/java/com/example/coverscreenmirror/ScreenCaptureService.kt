@@ -97,6 +97,7 @@ class ScreenCaptureService(private val context: Context) : Binder() {
         if (virtualDisplay != null) {
             try {
                 virtualDisplay?.surface = null
+                Thread.sleep(200) // CRITICAL: Wait for system_server to process detachment before native surface is destroyed!
                 android.util.Log.e("ScreenMirror", "VirtualDisplay Mirroring stopped (Surface detached, instance kept alive).")
             } catch (e: Exception) {
                 e.printStackTrace()
