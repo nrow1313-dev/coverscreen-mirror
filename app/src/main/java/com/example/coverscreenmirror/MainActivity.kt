@@ -28,20 +28,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 
 class MainActivity : ComponentActivity() {
 
-    var isBlackOverlay by mutableStateOf(false)
-
-    private val onStartMirror = {
-        try {
-            val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-            method.isAccessible = true
-            method.invoke(null, arrayOf("sh", "-c", "appops set " + packageName + " PROJECT_MEDIA allow"), null, null)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        
-        val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        screenCaptureLauncher.launch(mpm.createScreenCaptureIntent())
-    }
+    private var targetGoToHome = false
 
     private val screenCaptureLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -49,6 +36,22 @@ class MainActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK && result.data != null) {
             startMirrorService(result.resultCode, result.data!!)
             launchCoverScreenActivity()
+            if (targetGoToHome) {
+                thread {
+                    try {
+                        Thread.sleep(1200) // Delay to let screen stabilize
+                        if (Shizuku.pingBinder()) {
+                            val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                            method.isAccessible = true
+                            // Send Home keyevent (3) via Shizuku
+                            val process = method.invoke(null, arrayOf("sh", "-c", "input keyevent 3"), null, null) as Process
+                            process.waitFor()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
         } else {
             Toast.makeText(this, "Permission denied for screen capture", Toast.LENGTH_SHORT).show()
         }
@@ -62,42 +65,18 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = androidx.compose.ui.graphics.Color(0xFF121212) // Dark background
                 ) {
-                    if (isBlackOverlay) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color.Black)
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onDoubleTap = {
-                                            isBlackOverlay = false
-                                            thread {
-                                                try {
-                                                    val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-                                                    method.isAccessible = true
-                                                    val process = method.invoke(null, arrayOf("sh", "-c", "cmd device_state cancel"), null, null) as Process
-                                                    process.waitFor()
-                                                } catch (e: Exception) {
-                                                    e.printStackTrace()
-                                                }
-                                            }
-                                        }
-                                    )
-                                }
-                        )
-                    } else {
-                        AppScreen(
-                            activity = this,
-                            onStartMirror = { startMirroring() },
-                            onStopMirror = { stopMirroring() }
-                        )
-                    }
+                    AppScreen(
+                        activity = this,
+                        onStartMirror = { goToHome -> startMirroring(goToHome) },
+                        onStopMirror = { stopMirroring() }
+                    )
                 }
             }
         }
     }
 
-    private fun startMirroring() {
+    private fun startMirroring(goToHome: Boolean = false) {
+        targetGoToHome = goToHome
         val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             try {
@@ -188,7 +167,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun AppScreen(activity: ComponentActivity, onStartMirror: () -> Unit, onStopMirror: () -> Unit) {
+fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onStopMirror: () -> Unit) {
     val prefs = activity.getSharedPreferences("mirror_prefs", Context.MODE_PRIVATE)
     var controlMode by remember { mutableStateOf(prefs.getString("control_mode", "shizuku") ?: "shizuku") }
     
@@ -197,6 +176,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: () -> Unit, onStopMirr
     var accessibilityEnabled by remember { mutableStateOf(isAccessibilityServiceEnabled(activity)) }
 
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var targetGoToHome by remember { mutableStateOf(false) }
 
     LaunchedEffect(controlMode) {
         prefs.edit().putString("control_mode", controlMode).apply()
@@ -296,7 +276,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: () -> Unit, onStopMirr
                                 e.printStackTrace()
                             }
                             activity.runOnUiThread {
-                                onStartMirror()
+                                onStartMirror(targetGoToHome)
                             }
                         }
                     },
@@ -534,7 +514,10 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: () -> Unit, onStopMirr
 
             // Action Buttons (Matte Black and Minimalist Light Gray)
             Button(
-                onClick = { showConfirmDialog = true },
+                onClick = {
+                    targetGoToHome = false
+                    showConfirmDialog = true
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -555,38 +538,8 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: () -> Unit, onStopMirr
 
             Button(
                 onClick = {
-                    (activity as? MainActivity)?.isBlackOverlay = true
-                    val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
-                    val resolveInfo = activity.packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
-                    val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
-                    val launcherActivity = resolveInfo?.activityInfo?.name ?: "com.sec.android.app.launcher.Launcher"
-                    
-                    thread {
-                        try {
-                            if (Shizuku.pingBinder()) {
-                                val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-                                method.isAccessible = true
-                                // 1. Force dual display mode
-                                var proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
-                                proc.waitFor()
-                                Thread.sleep(500)
-                                // 2. Launch default launcher on Display 1
-                                val cmd = "am start -n $launcherPackage/$launcherActivity --display 1"
-                                proc = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
-                                proc.waitFor()
-                                
-                                activity.runOnUiThread {
-                                    Toast.makeText(activity, "Đã mở màn hình chính gốc trên màn phụ!", Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                activity.runOnUiThread {
-                                    Toast.makeText(activity, "Chế độ này yêu cầu Shizuku!", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
+                    targetGoToHome = true
+                    showConfirmDialog = true
                 },
                 modifier = Modifier
                     .fillMaxWidth()
