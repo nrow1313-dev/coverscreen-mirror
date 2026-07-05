@@ -59,6 +59,30 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        val currentDisplay = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            this.display
+        } else {
+            @Suppress("DEPRECATION")
+            windowManager.defaultDisplay
+        }
+        if (currentDisplay?.displayId == 0) {
+            thread {
+                try {
+                    if (Shizuku.pingBinder()) {
+                        val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                        method.isAccessible = true
+                        val process = method.invoke(null, arrayOf("sh", "-c", "wm size -d 1 reset"), null, null) as Process
+                        process.waitFor()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
     private fun startMirroring(goToHome: Boolean = false) {
         targetGoToHome = goToHome
         val mpm = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -80,10 +104,16 @@ class MainActivity : ComponentActivity() {
         Toast.makeText(this, "Đã dừng trình chiếu", Toast.LENGTH_SHORT).show()
         thread {
             try {
-                val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-                method.isAccessible = true
-                val process = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 0 && sleep 0.1 && cmd device_state cancel"), null, null) as Process
-                process.waitFor()
+                if (Shizuku.pingBinder()) {
+                    val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                    method.isAccessible = true
+                    // 1. Reset Display 1 override size
+                    var process = method.invoke(null, arrayOf("sh", "-c", "wm size -d 1 reset"), null, null) as Process
+                    process.waitFor()
+                    // 2. Cancel device state overrides
+                    process = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 0 && sleep 0.1 && cmd device_state cancel"), null, null) as Process
+                    process.waitFor()
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -523,20 +553,39 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
 
             Button(
                 onClick = {
+                    val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+                    val resolveInfo = activity.packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+                    val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
+                    val launcherActivity = resolveInfo?.activityInfo?.name ?: "com.sec.android.app.launcher.Launcher"
+                    
                     thread {
                         try {
                             if (Shizuku.pingBinder()) {
                                 val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
                                 method.isAccessible = true
-                                val process = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
-                                process.waitFor()
+                                // 1. Force dual display mode
+                                var proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
+                                proc.waitFor()
                                 Thread.sleep(500)
+                                // 2. Override Display 1 size to portrait
+                                proc = method.invoke(null, arrayOf("sh", "-c", "wm size -d 1 540x1100"), null, null) as Process
+                                proc.waitFor()
+                                Thread.sleep(300)
+                                // 3. Launch default launcher on Display 1
+                                val cmd = "am start -n $launcherPackage/$launcherActivity --display 1"
+                                proc = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
+                                proc.waitFor()
+                                
+                                activity.runOnUiThread {
+                                    Toast.makeText(activity, "Đã mở màn gốc tỉ lệ dọc ở màn ngoài!", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                activity.runOnUiThread {
+                                    Toast.makeText(activity, "Chế độ này yêu cầu Shizuku!", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         } catch (e: Exception) {
                             e.printStackTrace()
-                        }
-                        activity.runOnUiThread {
-                            (activity as? MainActivity)?.launchCoverScreenActivity("VIRTUAL_DISPLAY")
                         }
                     }
                 },

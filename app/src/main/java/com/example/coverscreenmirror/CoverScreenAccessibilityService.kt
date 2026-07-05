@@ -17,7 +17,45 @@ class CoverScreenAccessibilityService : AccessibilityService() {
         android.util.Log.e("ScreenMirror", "AccessibilityService connected")
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event == null) return
+        
+        // Auto-click MediaProjection confirm dialog
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val rootNode = rootInActiveWindow ?: return
+            
+            // 1. Search by system button resource ID (android:id/button1 is standard positive button)
+            val buttons = rootNode.findAccessibilityNodeInfosByViewId("android:id/button1")
+            if (buttons != null && buttons.isNotEmpty()) {
+                for (button in buttons) {
+                    val text = button.text?.toString() ?: ""
+                    if (text.contains("Bắt đầu", ignoreCase = true) || 
+                        text.contains("Start", ignoreCase = true) || 
+                        text.contains("Cho phép", ignoreCase = true) ||
+                        text.contains("Allow", ignoreCase = true)) {
+                        button.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+                        android.util.Log.e("ScreenMirror", "Auto-clicked media projection dialog button!")
+                        return
+                    }
+                }
+            }
+            
+            // 2. Fallback: search by text
+            val textList = listOf("Bắt đầu ngay", "Start now", "Bắt đầu", "Start")
+            for (text in textList) {
+                val nodes = rootNode.findAccessibilityNodeInfosByText(text)
+                if (nodes != null && nodes.isNotEmpty()) {
+                    for (node in nodes) {
+                        if (node.isClickable) {
+                            node.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)
+                            android.util.Log.e("ScreenMirror", "Auto-clicked media projection dialog via text: $text")
+                            return
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     override fun onInterrupt() {}
 
