@@ -525,6 +525,58 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: () -> Unit, onStopMirr
             Spacer(modifier = Modifier.height(12.dp))
 
             Button(
+                onClick = {
+                    val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+                    val resolveInfo = activity.packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+                    val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
+                    val launcherActivity = resolveInfo?.activityInfo?.name ?: "com.sec.android.app.launcher.Launcher"
+                    
+                    thread {
+                        try {
+                            if (Shizuku.pingBinder()) {
+                                val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                                method.isAccessible = true
+                                // 1. Force dual display mode
+                                var proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
+                                proc.waitFor()
+                                Thread.sleep(500)
+                                // 2. Launch default launcher on Display 1
+                                val cmd = "am start -n $launcherPackage/$launcherActivity --display 1"
+                                proc = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
+                                proc.waitFor()
+                                
+                                activity.runOnUiThread {
+                                    Toast.makeText(activity, "Đã mở màn hình chính gốc trên màn phụ!", Toast.LENGTH_SHORT).show()
+                                }
+                            } else {
+                                activity.runOnUiThread {
+                                    Toast.makeText(activity, "Chế độ này yêu cầu Shizuku!", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF111111) // Matte Black
+                ),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    text = "MỞ MÀN HÌNH CHÍNH GỐC",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
                 onClick = onStopMirror,
                 modifier = Modifier
                     .fillMaxWidth()
