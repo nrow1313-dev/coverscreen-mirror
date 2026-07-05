@@ -50,47 +50,52 @@ class ScreenCaptureService(context: Context) : Binder() {
         try {
             stopCapture()
             
-            // 1. Create a display mirror binder
-            val createDisplayMethod = SurfaceControl::class.java.getMethod(
+            // 1. Create a display mirror binder using getDeclaredMethod for Hidden API
+            val createDisplayMethod = SurfaceControl::class.java.getDeclaredMethod(
                 "createDisplay", 
                 String::class.java, 
                 java.lang.Boolean.TYPE
             )
+            createDisplayMethod.isAccessible = true
             mirrorBinder = createDisplayMethod.invoke(null, "CoverMirrorDisplay", true) as IBinder
 
             // 2. Set screen projection surface
-            val setDisplaySurfaceMethod = SurfaceControl::class.java.getMethod(
+            val setDisplaySurfaceMethod = SurfaceControl::class.java.getDeclaredMethod(
                 "setDisplaySurface", 
                 IBinder::class.java, 
                 Surface::class.java
             )
+            setDisplaySurfaceMethod.isAccessible = true
             setDisplaySurfaceMethod.invoke(null, mirrorBinder, surface)
 
             // 3. Set physical layer stack (Display 0 has stack 0)
-            val setDisplayLayerStackMethod = SurfaceControl::class.java.getMethod(
+            val setDisplayLayerStackMethod = SurfaceControl::class.java.getDeclaredMethod(
                 "setDisplayLayerStack",
                 IBinder::class.java,
                 java.lang.Integer.TYPE
             )
+            setDisplayLayerStackMethod.isAccessible = true
             setDisplayLayerStackMethod.invoke(null, mirrorBinder, 0)
 
             // 4. Configure screen projection dimensions
-            val setDisplaySizeMethod = SurfaceControl::class.java.getMethod(
+            val setDisplaySizeMethod = SurfaceControl::class.java.getDeclaredMethod(
                 "setDisplaySize",
                 IBinder::class.java,
                 java.lang.Integer.TYPE,
                 java.lang.Integer.TYPE
             )
+            setDisplaySizeMethod.isAccessible = true
             setDisplaySizeMethod.invoke(null, mirrorBinder, width, height)
 
-            // 5. Configure display projection viewport scaling (Crucial to bypass black screen)
-            val setDisplayProjectionMethod = SurfaceControl::class.java.getMethod(
+            // 5. Configure display projection viewport scaling (Bypass black screen)
+            val setDisplayProjectionMethod = SurfaceControl::class.java.getDeclaredMethod(
                 "setDisplayProjection",
                 IBinder::class.java,
                 java.lang.Integer.TYPE,
                 Rect::class.java,
                 Rect::class.java
             )
+            setDisplayProjectionMethod.isAccessible = true
             val layerStackRect = Rect(0, 0, width, height)
             val displayRect = Rect(0, 0, width, height)
             setDisplayProjectionMethod.invoke(null, mirrorBinder, 0, layerStackRect, displayRect)
@@ -104,10 +109,11 @@ class ScreenCaptureService(context: Context) : Binder() {
     private fun stopCapture() {
         if (mirrorBinder != null) {
             try {
-                val destroyDisplayMethod = SurfaceControl::class.java.getMethod(
+                val destroyDisplayMethod = SurfaceControl::class.java.getDeclaredMethod(
                     "destroyDisplay", 
                     IBinder::class.java
                 )
+                destroyDisplayMethod.isAccessible = true
                 destroyDisplayMethod.invoke(null, mirrorBinder)
                 mirrorBinder = null
                 android.util.Log.e("ScreenMirror", "SurfaceControl Mirroring stopped.")
