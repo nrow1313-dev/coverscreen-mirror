@@ -1,6 +1,7 @@
 package com.example.coverscreenmirror
 
 import android.content.Context
+import android.graphics.Rect
 import android.os.*
 import android.view.Surface
 import android.view.SurfaceControl
@@ -49,7 +50,7 @@ class ScreenCaptureService(context: Context) : Binder() {
         try {
             stopCapture()
             
-            // 1. Create a display mirror binder (boolean primitive type)
+            // 1. Create a display mirror binder
             val createDisplayMethod = SurfaceControl::class.java.getMethod(
                 "createDisplay", 
                 String::class.java, 
@@ -65,7 +66,7 @@ class ScreenCaptureService(context: Context) : Binder() {
             )
             setDisplaySurfaceMethod.invoke(null, mirrorBinder, surface)
 
-            // 3. Set physical layer stack (int primitive type)
+            // 3. Set physical layer stack (Display 0 has stack 0)
             val setDisplayLayerStackMethod = SurfaceControl::class.java.getMethod(
                 "setDisplayLayerStack",
                 IBinder::class.java,
@@ -73,7 +74,7 @@ class ScreenCaptureService(context: Context) : Binder() {
             )
             setDisplayLayerStackMethod.invoke(null, mirrorBinder, 0)
 
-            // 4. Configure screen projection dimensions (int primitive types)
+            // 4. Configure screen projection dimensions
             val setDisplaySizeMethod = SurfaceControl::class.java.getMethod(
                 "setDisplaySize",
                 IBinder::class.java,
@@ -81,6 +82,18 @@ class ScreenCaptureService(context: Context) : Binder() {
                 java.lang.Integer.TYPE
             )
             setDisplaySizeMethod.invoke(null, mirrorBinder, width, height)
+
+            // 5. Configure display projection viewport scaling (Crucial to bypass black screen)
+            val setDisplayProjectionMethod = SurfaceControl::class.java.getMethod(
+                "setDisplayProjection",
+                IBinder::class.java,
+                java.lang.Integer.TYPE,
+                Rect::class.java,
+                Rect::class.java
+            )
+            val layerStackRect = Rect(0, 0, width, height)
+            val displayRect = Rect(0, 0, width, height)
+            setDisplayProjectionMethod.invoke(null, mirrorBinder, 0, layerStackRect, displayRect)
 
             android.util.Log.e("ScreenMirror", "SurfaceControl Hardware Mirroring started successfully!")
         } catch (e: Exception) {
