@@ -200,6 +200,8 @@ class CoverScreenActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        bypassHiddenApiRestrictions()
+        super.onCreate(savedInstanceState)
         mode = intent.getStringExtra("MODE") ?: "MIRRORING"
         val currentDisplay = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             this.display
@@ -393,7 +395,8 @@ class CoverScreenActivity : ComponentActivity() {
                         }
                         
                         try {
-                            val setDisplayIdMethod = MotionEvent::class.java.getMethod("setDisplayId", Int::class.java)
+                            val setDisplayIdMethod = MotionEvent::class.java.getDeclaredMethod("setDisplayId", java.lang.Integer.TYPE)
+                            setDisplayIdMethod.isAccessible = true
                             setDisplayIdMethod.invoke(scaledEvent, vDisplayId)
                         } catch (e: Exception) {
                             android.util.Log.e("ScreenMirror", "Failed to set display ID on MotionEvent", e)
@@ -549,6 +552,33 @@ class CoverScreenActivity : ComponentActivity() {
             e.printStackTrace()
         }
         super.onDestroy()
+    }
+
+    private fun bypassHiddenApiRestrictions() {
+        try {
+            val classClass = Class.forName("java.lang.Class")
+            val forName = classClass.getDeclaredMethod("forName", String::class.java)
+            val getDeclaredMethod = classClass.getDeclaredMethod(
+                "getDeclaredMethod",
+                String::class.java,
+                Class.forName("[Ljava.lang.Class;")
+            )
+
+            val vmRuntimeClass = forName.invoke(null, "dalvik.system.VMRuntime") as Class<*>
+            val getRuntimeMethod = getDeclaredMethod.invoke(vmRuntimeClass, "getRuntime", null) as java.lang.reflect.Method
+            val vmRuntime = getRuntimeMethod.invoke(null)
+
+            val setHiddenApiExemptionsMethod = getDeclaredMethod.invoke(
+                vmRuntimeClass,
+                "setHiddenApiExemptions",
+                arrayOf(Class.forName("[Ljava.lang.String;"))
+            ) as java.lang.reflect.Method
+
+            setHiddenApiExemptionsMethod.invoke(vmRuntime, arrayOf(arrayOf("L")))
+            android.util.Log.e("ScreenMirror", "Successfully bypassed Hidden API restrictions in App process!")
+        } catch (e: Exception) {
+            android.util.Log.e("ScreenMirror", "Failed to bypass Hidden API restrictions in App process", e)
+        }
     }
 }
 

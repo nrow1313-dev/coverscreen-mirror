@@ -9,6 +9,10 @@ import android.view.SurfaceControl
 class ScreenCaptureService(context: Context) : Binder() {
     private var mirrorBinder: IBinder? = null
     
+    init {
+        bypassHiddenApiRestrictions()
+    }
+    
     private val handler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             when (msg.what) {
@@ -42,6 +46,33 @@ class ScreenCaptureService(context: Context) : Binder() {
         return super.onTransact(code, data, reply, flags)
     }
 
+    private fun bypassHiddenApiRestrictions() {
+        try {
+            val classClass = Class.forName("java.lang.Class")
+            val forName = classClass.getDeclaredMethod("forName", String::class.java)
+            val getDeclaredMethod = classClass.getDeclaredMethod(
+                "getDeclaredMethod",
+                String::class.java,
+                Class.forName("[Ljava.lang.Class;")
+            )
+
+            val vmRuntimeClass = forName.invoke(null, "dalvik.system.VMRuntime") as Class<*>
+            val getRuntimeMethod = getDeclaredMethod.invoke(vmRuntimeClass, "getRuntime", null) as java.lang.reflect.Method
+            val vmRuntime = getRuntimeMethod.invoke(null)
+
+            val setHiddenApiExemptionsMethod = getDeclaredMethod.invoke(
+                vmRuntimeClass,
+                "setHiddenApiExemptions",
+                arrayOf(Class.forName("[Ljava.lang.String;"))
+            ) as java.lang.reflect.Method
+
+            setHiddenApiExemptionsMethod.invoke(vmRuntime, arrayOf(arrayOf("L")))
+            android.util.Log.e("ScreenMirror", "Successfully bypassed Hidden API restrictions in UserService!")
+        } catch (e: Exception) {
+            android.util.Log.e("ScreenMirror", "Failed to bypass Hidden API restrictions in UserService", e)
+        }
+    }
+
     private fun startCapture(surface: Surface?, width: Int, height: Int) {
         if (surface == null) {
             android.util.Log.e("ScreenMirror", "SurfaceCaptureService: Received null surface")
@@ -50,7 +81,7 @@ class ScreenCaptureService(context: Context) : Binder() {
         try {
             stopCapture()
             
-            // 1. Create a display mirror binder using getDeclaredMethod for Hidden API
+            // 1. Create a display mirror binder
             val createDisplayMethod = SurfaceControl::class.java.getDeclaredMethod(
                 "createDisplay", 
                 String::class.java, 
@@ -87,7 +118,7 @@ class ScreenCaptureService(context: Context) : Binder() {
             setDisplaySizeMethod.isAccessible = true
             setDisplaySizeMethod.invoke(null, mirrorBinder, width, height)
 
-            // 5. Configure display projection viewport scaling (Bypass black screen)
+            // 5. Configure display projection viewport scaling
             val setDisplayProjectionMethod = SurfaceControl::class.java.getDeclaredMethod(
                 "setDisplayProjection",
                 IBinder::class.java,
