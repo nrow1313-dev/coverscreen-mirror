@@ -202,7 +202,10 @@ class CoverScreenActivity : ComponentActivity() {
     private fun stopMirroring() {
         if (mode == "MIRRORING") {
             stopService(Intent(this, ScreenMirrorService::class.java))
+        } else if (mode == "SILENT_MIRRORING") {
+            sendStopCaptureMessage()
         }
+        virtualDisplay?.surface = null
         virtualDisplay?.release()
         virtualDisplay = null
         thread {
@@ -338,6 +341,7 @@ class CoverScreenActivity : ComponentActivity() {
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                     android.util.Log.e("ScreenMirror", "CoverScreenActivity: surfaceDestroyed")
                     if (mode == "VIRTUAL_DISPLAY") {
+                        virtualDisplay?.surface = null
                         virtualDisplay?.release()
                         virtualDisplay = null
                     } else if (mode == "SILENT_MIRRORING") {
