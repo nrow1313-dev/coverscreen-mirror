@@ -43,6 +43,12 @@ class ScreenCaptureService(private val context: Context) : Binder() {
         if (code == IBinder.FIRST_CALL_TRANSACTION) {
             reply?.writeStrongBinder(messenger.binder)
             return true
+        } else if (code == IBinder.FIRST_CALL_TRANSACTION + 1) {
+            // Synchronous stop request
+            val thread = Thread { stopCapture() }
+            thread.start()
+            thread.join(2000) // Wait up to 2 seconds
+            return true
         }
         return super.onTransact(code, data, reply, flags)
     }

@@ -29,6 +29,9 @@ class CoverScreenActivity : ComponentActivity() {
     companion object {
         var isRunningOnCover = false
             private set
+        var captureMessenger: Messenger? = null
+        var isBoundToCapture = false
+        var serviceBinder: IBinder? = null
     }
 
     private var mode = "MIRRORING"
@@ -45,14 +48,13 @@ class CoverScreenActivity : ComponentActivity() {
     }
 
     private lateinit var surfaceView: SurfaceView
-    private var captureMessenger: Messenger? = null
-    private var isBoundToCapture = false
     private var mainWidth = 1080
     private var mainHeight = 2640
 
     private val serviceConnection = object : android.content.ServiceConnection {
         override fun onServiceConnected(name: android.content.ComponentName?, service: IBinder?) {
             android.util.Log.e("ScreenMirror", "Shizuku UserService connected!")
+            serviceBinder = service
             val data = Parcel.obtain()
             val reply = Parcel.obtain()
             try {
@@ -60,7 +62,9 @@ class CoverScreenActivity : ComponentActivity() {
                 val messengerBinder = reply.readStrongBinder()
                 if (messengerBinder != null) {
                     captureMessenger = Messenger(messengerBinder)
-                    sendStartCaptureMessage()
+                    if (mode == "SILENT_MIRRORING") {
+                        sendStartCaptureMessage()
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ScreenMirror", "Failed to retrieve Messenger binder", e)
@@ -73,6 +77,7 @@ class CoverScreenActivity : ComponentActivity() {
         override fun onServiceDisconnected(name: android.content.ComponentName?) {
             captureMessenger = null
             isBoundToCapture = false
+            serviceBinder = null
         }
     }
 
@@ -95,10 +100,22 @@ class CoverScreenActivity : ComponentActivity() {
 
     private fun sendStopCaptureMessage() {
         val messenger = captureMessenger ?: return
+        val binder = serviceBinder
         try {
-            val msg = Message.obtain(null, 2)
-            messenger.send(msg)
-            android.util.Log.e("ScreenMirror", "Sent STOP_CAPTURE to Shizuku UserService")
+            if (binder != null && binder.isBinderAlive) {
+                val data = Parcel.obtain()
+                val reply = Parcel.obtain()
+                try {
+                    binder.transact(IBinder.FIRST_CALL_TRANSACTION + 1, data, reply, 0)
+                    android.util.Log.e("ScreenMirror", "Synchronous stop transaction successful")
+                } finally {
+                    data.recycle()
+                    reply.recycle()
+                }
+            } else {
+                val msg = Message.obtain(null, 2)
+                messenger.send(msg)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
