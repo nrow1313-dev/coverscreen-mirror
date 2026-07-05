@@ -614,7 +614,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                                 e.printStackTrace()
                             }
                             activity.runOnUiThread {
-                                (activity as? MainActivity)?.launchCoverScreenActivity("VIRTUAL_DISPLAY")
+                                (activity as? MainActivity)?.launchCoverScreenActivity("SILENT_MIRRORING")
                             }
                         }
                     },
