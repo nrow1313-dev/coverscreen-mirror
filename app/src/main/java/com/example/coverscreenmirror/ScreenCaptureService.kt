@@ -5,6 +5,7 @@ import android.graphics.Rect
 import android.os.*
 import android.view.Surface
 import android.view.SurfaceControl
+import org.lsposed.hiddenapibypass.HiddenApiBypass
 
 class ScreenCaptureService(context: Context) : Binder() {
     private var mirrorBinder: IBinder? = null
@@ -48,25 +49,7 @@ class ScreenCaptureService(context: Context) : Binder() {
 
     private fun bypassHiddenApiRestrictions() {
         try {
-            val classClass = Class.forName("java.lang.Class")
-            val forName = classClass.getDeclaredMethod("forName", String::class.java)
-            val getDeclaredMethod = classClass.getDeclaredMethod(
-                "getDeclaredMethod",
-                String::class.java,
-                Class.forName("[Ljava.lang.Class;")
-            )
-
-            val vmRuntimeClass = forName.invoke(null, "dalvik.system.VMRuntime") as Class<*>
-            val getRuntimeMethod = getDeclaredMethod.invoke(vmRuntimeClass, "getRuntime", null) as java.lang.reflect.Method
-            val vmRuntime = getRuntimeMethod.invoke(null)
-
-            val setHiddenApiExemptionsMethod = getDeclaredMethod.invoke(
-                vmRuntimeClass,
-                "setHiddenApiExemptions",
-                arrayOf(Class.forName("[Ljava.lang.String;"))
-            ) as java.lang.reflect.Method
-
-            setHiddenApiExemptionsMethod.invoke(vmRuntime, arrayOf(arrayOf("L")))
+            HiddenApiBypass.addHiddenApiExemptions("L")
             android.util.Log.e("ScreenMirror", "Successfully bypassed Hidden API restrictions in UserService!")
         } catch (e: Exception) {
             android.util.Log.e("ScreenMirror", "Failed to bypass Hidden API restrictions in UserService", e)
