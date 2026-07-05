@@ -555,40 +555,21 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
 
             Button(
                 onClick = {
-                    val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
-                    val resolveInfo = activity.packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
-                    val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
-                    val launcherActivity = resolveInfo?.activityInfo?.name ?: "com.sec.android.app.launcher.Launcher"
-                    
                     thread {
                         try {
                             if (Shizuku.pingBinder()) {
                                 val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
                                 method.isAccessible = true
                                 // 1. Force dual display mode
-                                var proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
+                                val proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
                                 proc.waitFor()
                                 Thread.sleep(500)
-                                // 2. Override Display 1 size to portrait
-                                proc = method.invoke(null, arrayOf("sh", "-c", "wm size -d 1 540x1100"), null, null) as Process
-                                proc.waitFor()
-                                Thread.sleep(300)
-                                // 3. Launch default launcher on Display 1
-                                val cmd = "am start -n $launcherPackage/$launcherActivity --display 1"
-                                proc = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
-                                proc.waitFor()
-                                
-                                activity.runOnUiThread {
-                                    CoverScreenAccessibilityService.instance?.showNavigationBar(true)
-                                    Toast.makeText(activity, "Đã mở màn gốc tỉ lệ dọc ở màn ngoài!", Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                activity.runOnUiThread {
-                                    Toast.makeText(activity, "Chế độ này yêu cầu Shizuku!", Toast.LENGTH_SHORT).show()
-                                }
                             }
                         } catch (e: Exception) {
                             e.printStackTrace()
+                        }
+                        activity.runOnUiThread {
+                            (activity as? MainActivity)?.launchCoverScreenActivity("SILENT_MIRRORING")
                         }
                     }
                 },

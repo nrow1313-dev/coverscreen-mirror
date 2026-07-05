@@ -8,6 +8,9 @@ import android.content.pm.PackageManager
 import rikka.shizuku.Shizuku
 import android.os.Bundle
 import android.os.IBinder
+import android.os.Messenger
+import android.os.Message
+import android.os.Parcel
 import android.util.DisplayMetrics
 import android.view.*
 import androidx.activity.ComponentActivity
@@ -32,6 +35,72 @@ class CoverScreenActivity : ComponentActivity() {
     private var virtualDisplay: VirtualDisplay? = null
     private var inputManagerInstance: Any? = null
     private var injectInputEventMethod: java.lang.reflect.Method? = null
+
+    private val stopReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            finish()
+        }
+    }
+
+    private lateinit var surfaceView: SurfaceView
+    private var captureMessenger: Messenger? = null
+    private var isBoundToCapture = false
+    private var mainWidth = 1080
+    private var mainHeight = 2640
+
+    private val serviceConnection = object : android.content.ServiceConnection {
+        override fun onServiceConnected(name: android.content.ComponentName?, service: IBinder?) {
+            android.util.Log.e("ScreenMirror", "Shizuku UserService connected!")
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            try {
+                service?.transact(IBinder.FIRST_CALL_TRANSACTION, data, reply, 0)
+                val messengerBinder = reply.readStrongBinder()
+                if (messengerBinder != null) {
+                    captureMessenger = Messenger(messengerBinder)
+                    sendStartCaptureMessage()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ScreenMirror", "Failed to retrieve Messenger binder", e)
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun onServiceDisconnected(name: android.content.ComponentName?) {
+            captureMessenger = null
+            isBoundToCapture = false
+        }
+    }
+
+    private fun sendStartCaptureMessage() {
+        val messenger = captureMessenger ?: return
+        try {
+            val msg = Message.obtain(null, 1).apply {
+                obj = Bundle().apply {
+                    putParcelable("surface", surfaceView.holder.surface)
+                    putInt("width", mainWidth)
+                    putInt("height", mainHeight)
+                }
+            }
+            messenger.send(msg)
+            android.util.Log.e("ScreenMirror", "Sent START_CAPTURE to Shizuku UserService")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun sendStopCaptureMessage() {
+        val messenger = captureMessenger ?: return
+        try {
+            val msg = Message.obtain(null, 2)
+            messenger.send(msg)
+            android.util.Log.e("ScreenMirror", "Sent STOP_CAPTURE to Shizuku UserService")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 
     private fun initInputInjector() {
         try {
@@ -152,8 +221,8 @@ class CoverScreenActivity : ComponentActivity() {
         val display = displayManager.getDisplay(0)
         val metrics = DisplayMetrics()
         display?.getRealMetrics(metrics)
-        val mainWidth = metrics.widthPixels
-        val mainHeight = metrics.heightPixels
+        mainWidth = metrics.widthPixels
+        mainHeight = metrics.heightPixels
         val mainAspectRatio = mainWidth.toFloat() / mainHeight.toFloat()
 
         // Get cover display dimensions
@@ -191,7 +260,7 @@ class CoverScreenActivity : ComponentActivity() {
         var startY = 0f
         var startTime = 0L
 
-        val surfaceView = SurfaceView(this).apply {
+        surfaceView = SurfaceView(this).apply {
             setZOrderOnTop(true)
             layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
             holder.addCallback(object : SurfaceHolder.Callback {
@@ -243,6 +312,24 @@ class CoverScreenActivity : ComponentActivity() {
                                 android.util.Log.e("ScreenMirror", "Failed to create VirtualDisplay", e)
                             }
                         }
+                    } else if (mode == "SILENT_MIRRORING") {
+                        if (!isBoundToCapture) {
+                            try {
+                                val serviceArgs = Shizuku.UserServiceArgs(
+                                    android.content.ComponentName(packageName, ScreenCaptureService::class.java.name)
+                                ).apply {
+                                    daemon(false)
+                                    processNameSuffix("mirror_service")
+                                    debuggable(true)
+                                }
+                                Shizuku.bindUserService(serviceArgs, serviceConnection)
+                                isBoundToCapture = true
+                            } catch (e: Exception) {
+                                android.util.Log.e("ScreenMirror", "Failed to bind Shizuku UserService", e)
+                            }
+                        } else {
+                            sendStartCaptureMessage()
+                        }
                     } else {
                         ScreenMirrorService.setSurfaceAndSize(holder.surface, mainWidth, mainHeight)
                     }
@@ -252,6 +339,8 @@ class CoverScreenActivity : ComponentActivity() {
                     if (mode == "VIRTUAL_DISPLAY") {
                         virtualDisplay?.release()
                         virtualDisplay = null
+                    } else if (mode == "SILENT_MIRRORING") {
+                        sendStopCaptureMessage()
                     } else {
                         ScreenMirrorService.setSurfaceAndSize(null, 1280, 720)
                     }
@@ -426,6 +515,29 @@ class CoverScreenActivity : ComponentActivity() {
 
     override fun onDestroy() {
         isRunningOnCover = false
+        try {
+            unregisterReceiver(stopReceiver)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        CoverScreenAccessibilityService.instance?.showNavigationBar(false)
+
+        if (isBoundToCapture) {
+            sendStopCaptureMessage()
+            try {
+                val serviceArgs = Shizuku.UserServiceArgs(
+                    android.content.ComponentName(packageName, ScreenCaptureService::class.java.name)
+                ).apply {
+                    daemon(false)
+                    processNameSuffix("mirror_service")
+                }
+                Shizuku.unbindUserService(serviceArgs, serviceConnection, true)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            isBoundToCapture = false
+        }
+
         virtualDisplay?.release()
         virtualDisplay = null
         try {
