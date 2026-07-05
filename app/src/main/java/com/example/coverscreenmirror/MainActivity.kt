@@ -68,6 +68,7 @@ class MainActivity : ComponentActivity() {
             windowManager.defaultDisplay
         }
         if (currentDisplay?.displayId == 0) {
+            CoverScreenAccessibilityService.instance?.showNavigationBar(false)
             thread {
                 try {
                     if (Shizuku.pingBinder()) {
@@ -101,6 +102,7 @@ class MainActivity : ComponentActivity() {
 
     private fun stopMirroring() {
         stopService(Intent(this, ScreenMirrorService::class.java))
+        CoverScreenAccessibilityService.instance?.showNavigationBar(false)
         Toast.makeText(this, "Đã dừng trình chiếu", Toast.LENGTH_SHORT).show()
         thread {
             try {
@@ -577,6 +579,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                                 proc.waitFor()
                                 
                                 activity.runOnUiThread {
+                                    CoverScreenAccessibilityService.instance?.showNavigationBar(true)
                                     Toast.makeText(activity, "Đã mở màn gốc tỉ lệ dọc ở màn ngoài!", Toast.LENGTH_SHORT).show()
                                 }
                             } else {
