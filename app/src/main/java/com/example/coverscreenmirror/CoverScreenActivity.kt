@@ -3,6 +3,9 @@ package com.example.coverscreenmirror
 import android.content.Context
 import android.content.Intent
 import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
+import android.content.pm.PackageManager
+import rikka.shizuku.Shizuku
 import android.os.Bundle
 import android.os.IBinder
 import android.util.DisplayMetrics
@@ -25,6 +28,8 @@ class CoverScreenActivity : ComponentActivity() {
             private set
     }
 
+    private var mode = "MIRRORING"
+    private var virtualDisplay: VirtualDisplay? = null
     private var inputManagerInstance: Any? = null
     private var injectInputEventMethod: java.lang.reflect.Method? = null
 
@@ -58,6 +63,30 @@ class CoverScreenActivity : ComponentActivity() {
     }
 
     private fun performGlobalSystemAction(action: Int) {
+        if (mode == "VIRTUAL_DISPLAY" && action == android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME) {
+            val vDisplayId = virtualDisplay?.display?.displayId ?: 1
+            thread {
+                try {
+                    if (Shizuku.pingBinder()) {
+                        val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                        method.isAccessible = true
+                        
+                        val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+                        val resolveInfo = packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+                        val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
+                        val launcherActivity = resolveInfo?.activityInfo?.name ?: "com.sec.android.app.launcher.Launcher"
+                        
+                        val cmd = "am start -n $launcherPackage/$launcherActivity --display $vDisplayId"
+                        val process = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
+                        process.waitFor()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            return
+        }
+
         val service = CoverScreenAccessibilityService.instance
         if (service != null) {
             service.performGlobalAction(action)
@@ -83,7 +112,11 @@ class CoverScreenActivity : ComponentActivity() {
     }
 
     private fun stopMirroring() {
-        stopService(Intent(this, ScreenMirrorService::class.java))
+        if (mode == "MIRRORING") {
+            stopService(Intent(this, ScreenMirrorService::class.java))
+        }
+        virtualDisplay?.release()
+        virtualDisplay = null
         thread {
             try {
                 val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
@@ -98,6 +131,7 @@ class CoverScreenActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        mode = intent.getStringExtra("MODE") ?: "MIRRORING"
         val currentDisplay = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             this.display
         } else {
@@ -170,12 +204,57 @@ class CoverScreenActivity : ComponentActivity() {
                     width: Int,
                     height: Int
                 ) {
-                    android.util.Log.e("ScreenMirror", "CoverScreenActivity: surfaceChanged ($width x $height)")
-                    ScreenMirrorService.setSurfaceAndSize(holder.surface, mainWidth, mainHeight)
+                    android.util.Log.e("ScreenMirror", "CoverScreenActivity: surfaceChanged ($width x $height) for mode $mode")
+                    if (mode == "VIRTUAL_DISPLAY") {
+                        if (virtualDisplay == null) {
+                            val dm = getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+                            try {
+                                virtualDisplay = dm.createVirtualDisplay(
+                                    "CoverVirtualDisplay",
+                                    mainWidth, mainHeight,
+                                    resources.displayMetrics.densityDpi,
+                                    holder.surface,
+                                    DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY
+                                )
+                                val vDisplayId = virtualDisplay?.display?.displayId ?: 1
+                                android.util.Log.e("ScreenMirror", "VirtualDisplay created: ID = $vDisplayId")
+                                
+                                thread {
+                                    try {
+                                        Thread.sleep(600)
+                                        if (Shizuku.pingBinder()) {
+                                            val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                                            method.isAccessible = true
+                                            
+                                            val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
+                                            val resolveInfo = packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
+                                            val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
+                                            val launcherActivity = resolveInfo?.activityInfo?.name ?: "com.sec.android.app.launcher.Launcher"
+                                            
+                                            val cmd = "am start -n $launcherPackage/$launcherActivity --display $vDisplayId"
+                                            val proc = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
+                                            proc.waitFor()
+                                        }
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("ScreenMirror", "Failed to create VirtualDisplay", e)
+                            }
+                        }
+                    } else {
+                        ScreenMirrorService.setSurfaceAndSize(holder.surface, mainWidth, mainHeight)
+                    }
                 }
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                     android.util.Log.e("ScreenMirror", "CoverScreenActivity: surfaceDestroyed")
-                    ScreenMirrorService.setSurfaceAndSize(null, 1280, 720)
+                    if (mode == "VIRTUAL_DISPLAY") {
+                        virtualDisplay?.release()
+                        virtualDisplay = null
+                    } else {
+                        ScreenMirrorService.setSurfaceAndSize(null, 1280, 720)
+                    }
                 }
             })
 
@@ -217,6 +296,20 @@ class CoverScreenActivity : ComponentActivity() {
                             InputDevice.SOURCE_TOUCHSCREEN,
                             event.flags
                         )
+                        
+                        val vDisplayId = if (mode == "VIRTUAL_DISPLAY") {
+                            virtualDisplay?.display?.displayId ?: 1
+                        } else {
+                            0
+                        }
+                        
+                        try {
+                            val setDisplayIdMethod = MotionEvent::class.java.getMethod("setDisplayId", Int::class.java)
+                            setDisplayIdMethod.invoke(scaledEvent, vDisplayId)
+                        } catch (e: Exception) {
+                            android.util.Log.e("ScreenMirror", "Failed to set display ID on MotionEvent", e)
+                        }
+                        
                         injectMotionEvent(scaledEvent)
                         scaledEvent.recycle()
                     } else {
@@ -333,6 +426,8 @@ class CoverScreenActivity : ComponentActivity() {
 
     override fun onDestroy() {
         isRunningOnCover = false
+        virtualDisplay?.release()
+        virtualDisplay = null
         try {
             val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
             method.isAccessible = true

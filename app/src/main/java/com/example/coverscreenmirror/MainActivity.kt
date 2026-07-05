@@ -35,23 +35,7 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         if (result.resultCode == RESULT_OK && result.data != null) {
             startMirrorService(result.resultCode, result.data!!)
-            launchCoverScreenActivity()
-            if (targetGoToHome) {
-                thread {
-                    try {
-                        Thread.sleep(1200) // Delay to let screen stabilize
-                        if (Shizuku.pingBinder()) {
-                            val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-                            method.isAccessible = true
-                            // Send Home keyevent (3) via Shizuku
-                            val process = method.invoke(null, arrayOf("sh", "-c", "input keyevent 3"), null, null) as Process
-                            process.waitFor()
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
-                }
-            }
+            launchCoverScreenActivity("MIRRORING")
         } else {
             Toast.makeText(this, "Permission denied for screen capture", Toast.LENGTH_SHORT).show()
         }
@@ -114,7 +98,7 @@ class MainActivity : ComponentActivity() {
         startForegroundService(serviceIntent)
     }
 
-    private fun launchCoverScreenActivity() {
+    fun launchCoverScreenActivity(mode: String) {
         val displayManager = getSystemService(Context.DISPLAY_SERVICE) as android.hardware.display.DisplayManager
         val coverDisplay = displayManager.getDisplay(1) ?: displayManager.displays.firstOrNull { it.displayId != 0 }
         
@@ -124,9 +108,10 @@ class MainActivity : ComponentActivity() {
                 options.launchDisplayId = coverDisplay.displayId
                 val intent = Intent(this, CoverScreenActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    putExtra("MODE", mode)
                 }
                 startActivity(intent, options.toBundle())
-                android.util.Log.e("ScreenMirror", "CoverScreenActivity launched via ActivityOptions on display ${coverDisplay.displayId}")
+                android.util.Log.e("ScreenMirror", "CoverScreenActivity launched via ActivityOptions on display ${coverDisplay.displayId} with mode $mode")
                 Toast.makeText(this, "Đã bắt đầu trình chiếu màn hình phụ!", Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 android.util.Log.e("ScreenMirror", "Failed to launch via ActivityOptions", e)
@@ -538,8 +523,22 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
 
             Button(
                 onClick = {
-                    targetGoToHome = true
-                    showConfirmDialog = true
+                    thread {
+                        try {
+                            if (Shizuku.pingBinder()) {
+                                val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                                method.isAccessible = true
+                                val process = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
+                                process.waitFor()
+                                Thread.sleep(500)
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                        activity.runOnUiThread {
+                            (activity as? MainActivity)?.launchCoverScreenActivity("VIRTUAL_DISPLAY")
+                        }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
