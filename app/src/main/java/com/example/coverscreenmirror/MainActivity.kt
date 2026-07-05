@@ -25,6 +25,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
 
 class MainActivity : ComponentActivity() {
 
@@ -36,6 +38,26 @@ class MainActivity : ComponentActivity() {
         if (result.resultCode == RESULT_OK && result.data != null) {
             startMirrorService(result.resultCode, result.data!!)
             launchCoverScreenActivity("MIRRORING")
+            
+            if (targetGoToHome) {
+                thread {
+                    try {
+                        Thread.sleep(800) // Wait 800ms to let projection activate completely
+                    } catch (e: Exception) {}
+                    runOnUiThread {
+                        try {
+                            val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+                                addCategory(Intent.CATEGORY_HOME)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(homeIntent)
+                            android.util.Log.e("ScreenMirror", "Sent HOME intent to minimize app")
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                }
+            }
         } else {
             Toast.makeText(this, "Permission denied for screen capture", Toast.LENGTH_SHORT).show()
         }
@@ -329,67 +351,108 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
         )
     }
 
-    // Refresh accessibility state when screen resumes
-    DisposableEffect(Unit) {
-        val listener = android.app.Application.ActivityLifecycleCallbacks::class // Not needed, just run check on recomposition
-        onDispose {}
-    }
     accessibilityEnabled = isAccessibilityServiceEnabled(activity)
 
-    // Minimalist light background
+    // Premium dark-themed, scrollable and compact layout
+    val scrollState = androidx.compose.foundation.rememberScrollState()
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFAFA))
+            .background(Color(0xFF121212)) // Matte Dark Background
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(horizontal = 16.dp)
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            // Push layout down a bit
+            Spacer(modifier = Modifier.height(24.dp))
             
-            Text(
-                text = "Mirror Screen",
-                style = MaterialTheme.typography.headlineLarge,
-                color = Color(0xFF111111),
-                fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = "Phản chiếu & điều khiển màn hình phụ",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF757575)
-            )
-            
-            Spacer(modifier = Modifier.height(40.dp))
-
-            // Minimalist monochrome Card
-            Card(
+            // Header Row: Title & Status Pill
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Mirror Screen",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color.White,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Mở màn chính ở bên ngoài",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF8E8E93)
+                    )
+                }
+                
+                // Status Pill in Top-Right
+                val isReady = if (controlMode == "shizuku") {
+                    shizukuAvailable && hasShizukuPermission
+                } else {
+                    accessibilityEnabled
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .background(
+                            color = if (isReady) Color(0x2234C759) else Color(0x22FF3B30),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(
+                                    color = if (isReady) Color(0xFF34C759) else Color(0xFFFF3B30),
+                                    shape = androidx.compose.foundation.shape.CircleShape
+                                )
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isReady) "Sẵn sàng" else "Chưa bật",
+                            color = if (isReady) Color(0xFF34C759) else Color(0xFFFF8282),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Premium Control Mode Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFFFFFFF)
+                    containerColor = Color(0xFF1C1C1E) // Premium dark gray
                 ),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     width = 1.dp,
-                    color = Color(0xFFE5E5E5)
+                    color = Color(0xFF2C2C2E)
                 )
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "CHẾ ĐỘ ĐIỀU KHIỂN",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFF111111),
+                        color = Color(0xFFE5E5EA),
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                        letterSpacing = androidx.compose.ui.unit.TextUnit(1.5f, androidx.compose.ui.unit.TextUnitType.Sp)
+                        letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp)
                     )
                     
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -399,215 +462,201 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             selected = (controlMode == "accessibility"),
                             onClick = { controlMode = "accessibility" },
                             colors = RadioButtonDefaults.colors(
-                                selectedColor = Color(0xFF111111),
-                                unselectedColor = Color(0xFFB0B0B0)
+                                selectedColor = Color(0xFF0A84FF), // iOS style blue
+                                unselectedColor = Color(0xFF48484A)
                             )
                         )
                         Text(
                             text = "Trợ năng",
-                            color = Color(0xFF111111),
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            modifier = Modifier.padding(start = 4.dp)
+                            modifier = Modifier
+                                .padding(start = 2.dp)
+                                .clickable { controlMode = "accessibility" }
                         )
                         
-                        Spacer(modifier = Modifier.width(48.dp))
+                        Spacer(modifier = Modifier.width(32.dp))
                         
                         RadioButton(
                             selected = (controlMode == "shizuku"),
                             onClick = { controlMode = "shizuku" },
                             colors = RadioButtonDefaults.colors(
-                                selectedColor = Color(0xFF111111),
-                                unselectedColor = Color(0xFFB0B0B0)
+                                selectedColor = Color(0xFF0A84FF),
+                                unselectedColor = Color(0xFF48484A)
                             )
                         )
                         Text(
                             text = "Shizuku",
-                            color = Color(0xFF111111),
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                            modifier = Modifier.padding(start = 4.dp)
+                            modifier = Modifier
+                                .padding(start = 2.dp)
+                                .clickable { controlMode = "shizuku" }
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Status section
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (controlMode == "shizuku") {
-                            if (shizukuAvailable && hasShizukuPermission) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(Color(0xFF2E7D32), androidx.compose.foundation.shape.CircleShape)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                    // Dynamic warning and settings triggers
+                    if (controlMode == "shizuku" && (!shizukuAvailable || !hasShizukuPermission)) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        androidx.compose.material3.HorizontalDivider(color = Color(0xFF2C2C2E))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Shizuku sẵn sàng và đã cấp quyền",
-                                    color = Color(0xFF2E7D32),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                    text = if (shizukuAvailable) "Shizuku chưa cấp quyền" else "Shizuku chưa hoạt động",
+                                    color = Color(0xFFFF453A),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                 )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(Color(0xFFC62828), androidx.compose.foundation.shape.CircleShape)
+                                Text(
+                                    text = if (shizukuAvailable) "Vui lòng cho phép ứng dụng truy cập Shizuku" else "Hãy khởi động Shizuku trên điện thoại",
+                                    color = Color(0xFF8E8E93),
+                                    style = MaterialTheme.typography.labelSmall
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = if (shizukuAvailable) "Shizuku chưa được cấp quyền" else "Shizuku chưa khởi chạy",
-                                        color = Color(0xFFC62828),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                                    )
-                                    if (shizukuAvailable) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Button(
-                                            onClick = { try { Shizuku.requestPermission(0) } catch (e: Exception) {} },
-                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111111)),
-                                            shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                                        ) {
-                                            Text("Cấp quyền Shizuku", color = Color.White, style = MaterialTheme.typography.labelMedium)
-                                        }
-                                    }
+                            }
+                            if (shizukuAvailable) {
+                                Button(
+                                    onClick = { try { Shizuku.requestPermission(0) } catch (e: Exception) {} },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
+                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text("Cấp quyền", color = Color.White, style = MaterialTheme.typography.labelSmall)
                                 }
                             }
-                        } else {
-                            if (accessibilityEnabled) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(Color(0xFF2E7D32), androidx.compose.foundation.shape.CircleShape)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                        }
+                    } else if (controlMode == "accessibility" && !accessibilityEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        androidx.compose.material3.HorizontalDivider(color = Color(0xFF2C2C2E))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Dịch vụ trợ năng hoạt động",
-                                    color = Color(0xFF2E7D32),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                    text = "Dịch vụ trợ năng chưa bật",
+                                    color = Color(0xFFFF453A),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
                                 )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(Color(0xFFC62828), androidx.compose.foundation.shape.CircleShape)
+                                Text(
+                                    text = "Yêu cầu quyền trợ năng để phản hồi cử chỉ vuốt chạm",
+                                    color = Color(0xFF8E8E93),
+                                    style = MaterialTheme.typography.labelSmall
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text(
-                                        text = "Chưa bật dịch vụ trợ năng",
-                                        color = Color(0xFFC62828),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Button(
-                                        onClick = {
-                                            try {
-                                                val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                                                activity.startActivity(intent)
-                                            } catch (e: Exception) {
-                                                Toast.makeText(activity, "Không thể mở cài đặt", Toast.LENGTH_SHORT).show()
-                                            }
-                                        },
-                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF111111)),
-                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
-                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                                    ) {
-                                        Text("Bật trong Cài đặt", color = Color.White, style = MaterialTheme.typography.labelMedium)
+                            }
+                            Button(
+                                onClick = {
+                                    try {
+                                        val intent = Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                                        activity.startActivity(intent)
+                                    } catch (e: Exception) {
+                                        Toast.makeText(activity, "Không thể mở cài đặt", Toast.LENGTH_SHORT).show()
                                     }
-                                }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Bật trong Cài đặt", color = Color.White, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Action Buttons (Matte Black and Minimalist Light Gray)
-            Button(
-                onClick = {
-                    targetGoToHome = false
-                    showConfirmDialog = true
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF111111) // Matte Black
-                ),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+            // Action Buttons in a single horizontal row (3 buttons)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "BẮT ĐẦU TRÌNH CHIẾU",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                )
-            }
+                // Button 1: Phản chiếu
+                Button(
+                    onClick = {
+                        targetGoToHome = false
+                        showConfirmDialog = true
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF1D1D1F) // Matte Dark Gray
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = "Phản chiếu",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = {
-                    thread {
-                        try {
-                            if (Shizuku.pingBinder()) {
-                                val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-                                method.isAccessible = true
-                                // 1. Force dual display mode
-                                val proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
-                                proc.waitFor()
-                                Thread.sleep(500)
+                // Button 2: Màn Chính
+                Button(
+                    onClick = {
+                        thread {
+                            try {
+                                if (Shizuku.pingBinder()) {
+                                    val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                                    method.isAccessible = true
+                                    val proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
+                                    proc.waitFor()
+                                    Thread.sleep(500)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
                             }
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                            activity.runOnUiThread {
+                                (activity as? MainActivity)?.launchCoverScreenActivity("VIRTUAL_DISPLAY")
+                            }
                         }
-                        activity.runOnUiThread {
-                            (activity as? MainActivity)?.launchCoverScreenActivity("SILENT_MIRRORING")
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF111111) // Matte Black
-                ),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "MỞ MÀN HÌNH CHÍNH GỐC",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                )
-            }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF0071E3) // Premium blue
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = "Màn Chính",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Button(
-                onClick = onStopMirror,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF0F0F0) // Off-white / light gray
-                ),
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E5E5))
-            ) {
-                Text(
-                    text = "DỪNG TRÌNH CHIẾU",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color(0xFF111111),
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                )
+                // Button 3: Dừng
+                Button(
+                    onClick = onStopMirror,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFE8E8ED) // Light Gray
+                    ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD2D2D7)),
+                    contentPadding = PaddingValues(horizontal = 4.dp)
+                ) {
+                    Text(
+                        text = "Dừng",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFFFF3B30), // Destructive Red
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(16.dp))
