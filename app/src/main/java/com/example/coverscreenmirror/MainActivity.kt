@@ -23,8 +23,12 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectTapGestures
 
 class MainActivity : ComponentActivity() {
+
+    var isBlackOverlay by mutableStateOf(false)
 
     private val onStartMirror = {
         try {
@@ -58,11 +62,36 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = androidx.compose.ui.graphics.Color(0xFF121212) // Dark background
                 ) {
-                    AppScreen(
-                        activity = this,
-                        onStartMirror = { startMirroring() },
-                        onStopMirror = { stopMirroring() }
-                    )
+                    if (isBlackOverlay) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onDoubleTap = {
+                                            isBlackOverlay = false
+                                            thread {
+                                                try {
+                                                    val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                                                    method.isAccessible = true
+                                                    val process = method.invoke(null, arrayOf("sh", "-c", "cmd device_state cancel"), null, null) as Process
+                                                    process.waitFor()
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                }
+                                            }
+                                        }
+                                    )
+                                }
+                        )
+                    } else {
+                        AppScreen(
+                            activity = this,
+                            onStartMirror = { startMirroring() },
+                            onStopMirror = { stopMirroring() }
+                        )
+                    }
                 }
             }
         }
@@ -526,6 +555,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: () -> Unit, onStopMirr
 
             Button(
                 onClick = {
+                    (activity as? MainActivity)?.isBlackOverlay = true
                     val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
                     val resolveInfo = activity.packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
                     val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
