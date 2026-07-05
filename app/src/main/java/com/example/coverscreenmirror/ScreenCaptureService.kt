@@ -13,7 +13,6 @@ class ScreenCaptureService(context: Context) : Binder() {
             when (msg.what) {
                 1 -> { // START_CAPTURE
                     val data = msg.obj as? Bundle ?: return
-                    // Set class loader for Parcelable Surface inside Bundle
                     data.classLoader = Surface::class.java.classLoader
                     val surface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         data.getParcelable("surface", Surface::class.java)
@@ -50,11 +49,11 @@ class ScreenCaptureService(context: Context) : Binder() {
         try {
             stopCapture()
             
-            // 1. Create a display mirror binder
+            // 1. Create a display mirror binder (boolean primitive type)
             val createDisplayMethod = SurfaceControl::class.java.getMethod(
                 "createDisplay", 
                 String::class.java, 
-                Boolean::class.java
+                java.lang.Boolean.TYPE
             )
             mirrorBinder = createDisplayMethod.invoke(null, "CoverMirrorDisplay", true) as IBinder
 
@@ -66,20 +65,20 @@ class ScreenCaptureService(context: Context) : Binder() {
             )
             setDisplaySurfaceMethod.invoke(null, mirrorBinder, surface)
 
-            // 3. Set physical layer stack of the primary display (Display 0 has stack 0)
+            // 3. Set physical layer stack (int primitive type)
             val setDisplayLayerStackMethod = SurfaceControl::class.java.getMethod(
                 "setDisplayLayerStack",
                 IBinder::class.java,
-                Int::class.java
+                java.lang.Integer.TYPE
             )
             setDisplayLayerStackMethod.invoke(null, mirrorBinder, 0)
 
-            // 4. Configure screen projection dimensions
+            // 4. Configure screen projection dimensions (int primitive types)
             val setDisplaySizeMethod = SurfaceControl::class.java.getMethod(
                 "setDisplaySize",
                 IBinder::class.java,
-                Int::class.java,
-                Int::class.java
+                java.lang.Integer.TYPE,
+                java.lang.Integer.TYPE
             )
             setDisplaySizeMethod.invoke(null, mirrorBinder, width, height)
 
