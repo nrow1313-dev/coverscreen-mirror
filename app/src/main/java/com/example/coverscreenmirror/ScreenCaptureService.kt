@@ -68,27 +68,26 @@ class ScreenCaptureService(private val context: Context) : Binder() {
             return
         }
         try {
-            stopCapture()
-            
-            // Create context for com.android.shell to match UID 2000
-            val shellContext = context.createPackageContext("com.android.shell", Context.CONTEXT_IGNORE_SECURITY)
-            val displayManager = shellContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-            
-            // Public Virtual Display Flags
-            // VIRTUAL_DISPLAY_FLAG_PUBLIC = 1
-            // VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR = 16
-            val flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR
-            
-            virtualDisplay = displayManager.createVirtualDisplay(
-                "CoverMirrorDisplay",
-                width,
-                height,
-                320, // densityDpi
-                surface,
-                flags
-            )
-
-            android.util.Log.e("ScreenMirror", "VirtualDisplay Auto-Mirroring started successfully under Shell package Context!")
+            if (virtualDisplay == null) {
+                // Create context for com.android.shell to match UID 2000
+                val shellContext = context.createPackageContext("com.android.shell", Context.CONTEXT_IGNORE_SECURITY)
+                val displayManager = shellContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+                
+                val flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR
+                
+                virtualDisplay = displayManager.createVirtualDisplay(
+                    "CoverMirrorDisplay",
+                    width,
+                    height,
+                    320, // densityDpi
+                    surface,
+                    flags
+                )
+                android.util.Log.e("ScreenMirror", "VirtualDisplay Capture Created anew.")
+            } else {
+                virtualDisplay?.surface = surface
+                android.util.Log.e("ScreenMirror", "VirtualDisplay Capture Reused existing instance.")
+            }
         } catch (e: Exception) {
             android.util.Log.e("ScreenMirror", "Failed to start VirtualDisplay mirroring", e)
         }
@@ -98,10 +97,7 @@ class ScreenCaptureService(private val context: Context) : Binder() {
         if (virtualDisplay != null) {
             try {
                 virtualDisplay?.surface = null
-                Thread.sleep(150) // Give system_server time to process surface detachment
-                virtualDisplay?.release()
-                virtualDisplay = null
-                android.util.Log.e("ScreenMirror", "VirtualDisplay Mirroring stopped and surface cleanly detached.")
+                android.util.Log.e("ScreenMirror", "VirtualDisplay Mirroring stopped (Surface detached, instance kept alive).")
             } catch (e: Exception) {
                 e.printStackTrace()
             }

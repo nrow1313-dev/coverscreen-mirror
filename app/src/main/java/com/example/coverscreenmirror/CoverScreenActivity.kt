@@ -92,6 +92,21 @@ class CoverScreenActivity : ComponentActivity() {
                 }
             }
             messenger.send(msg)
+            
+            // Force redraw to prevent black screen on initial VirtualDisplay mirror
+            thread {
+                try {
+                    Thread.sleep(500)
+                    if (Shizuku.pingBinder()) {
+                        val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                        method.isAccessible = true
+                        val process = method.invoke(null, arrayOf("sh", "-c", "input tap 1 1"), null, null) as Process
+                        process.waitFor()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
             android.util.Log.e("ScreenMirror", "Sent START_CAPTURE to Shizuku UserService")
         } catch (e: Exception) {
             e.printStackTrace()
