@@ -291,26 +291,7 @@ class CoverScreenActivity : ComponentActivity() {
                                 val vDisplayId = virtualDisplay?.display?.displayId ?: 1
                                 android.util.Log.e("ScreenMirror", "VirtualDisplay created: ID = $vDisplayId")
                                 
-                                thread {
-                                    try {
-                                        Thread.sleep(600)
-                                        if (Shizuku.pingBinder()) {
-                                            val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-                                            method.isAccessible = true
-                                            
-                                            val homeIntent = Intent(Intent.ACTION_MAIN).apply { addCategory(Intent.CATEGORY_HOME) }
-                                            val resolveInfo = packageManager.resolveActivity(homeIntent, PackageManager.MATCH_DEFAULT_ONLY)
-                                            val launcherPackage = resolveInfo?.activityInfo?.packageName ?: "com.sec.android.app.launcher"
-                                            val launcherActivity = resolveInfo?.activityInfo?.name ?: "com.sec.android.app.launcher.Launcher"
-                                            
-                                            val cmd = "am start -n $launcherPackage/$launcherActivity --display $vDisplayId"
-                                            val proc = method.invoke(null, arrayOf("sh", "-c", cmd), null, null) as Process
-                                            proc.waitFor()
-                                        }
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                }
+                                // The automatic launcher start logic has been removed as requested
                             } catch (e: Exception) {
                                 android.util.Log.e("ScreenMirror", "Failed to create VirtualDisplay", e)
                             }
