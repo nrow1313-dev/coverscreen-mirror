@@ -1,14 +1,14 @@
 package com.example.coverscreenmirror
 
 import android.content.Context
-import android.graphics.Rect
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
 import android.os.*
 import android.view.Surface
-import android.view.SurfaceControl
 import org.lsposed.hiddenapibypass.HiddenApiBypass
 
-class ScreenCaptureService(context: Context) : Binder() {
-    private var mirrorBinder: IBinder? = null
+class ScreenCaptureService(private val context: Context) : Binder() {
+    private var virtualDisplay: VirtualDisplay? = null
     
     init {
         bypassHiddenApiRestrictions()
@@ -58,79 +58,42 @@ class ScreenCaptureService(context: Context) : Binder() {
 
     private fun startCapture(surface: Surface?, width: Int, height: Int) {
         if (surface == null) {
-            android.util.Log.e("ScreenMirror", "SurfaceCaptureService: Received null surface")
+            android.util.Log.e("ScreenMirror", "ScreenCaptureService: Received null surface")
             return
         }
         try {
             stopCapture()
             
-            // 1. Create a display mirror binder
-            val createDisplayMethod = SurfaceControl::class.java.getDeclaredMethod(
-                "createDisplay", 
-                String::class.java, 
-                java.lang.Boolean.TYPE
+            // Create context for com.android.shell to match UID 2000
+            val shellContext = context.createPackageContext("com.android.shell", Context.CONTEXT_IGNORE_SECURITY)
+            val displayManager = shellContext.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+            
+            // Public Virtual Display Flags
+            // VIRTUAL_DISPLAY_FLAG_PUBLIC = 1
+            // VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR = 16
+            val flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR
+            
+            virtualDisplay = displayManager.createVirtualDisplay(
+                "CoverMirrorDisplay",
+                width,
+                height,
+                320, // densityDpi
+                surface,
+                flags
             )
-            createDisplayMethod.isAccessible = true
-            mirrorBinder = createDisplayMethod.invoke(null, "CoverMirrorDisplay", true) as IBinder
 
-            // 2. Set screen projection surface
-            val setDisplaySurfaceMethod = SurfaceControl::class.java.getDeclaredMethod(
-                "setDisplaySurface", 
-                IBinder::class.java, 
-                Surface::class.java
-            )
-            setDisplaySurfaceMethod.isAccessible = true
-            setDisplaySurfaceMethod.invoke(null, mirrorBinder, surface)
-
-            // 3. Set physical layer stack (Display 0 has stack 0)
-            val setDisplayLayerStackMethod = SurfaceControl::class.java.getDeclaredMethod(
-                "setDisplayLayerStack",
-                IBinder::class.java,
-                java.lang.Integer.TYPE
-            )
-            setDisplayLayerStackMethod.isAccessible = true
-            setDisplayLayerStackMethod.invoke(null, mirrorBinder, 0)
-
-            // 4. Configure screen projection dimensions
-            val setDisplaySizeMethod = SurfaceControl::class.java.getDeclaredMethod(
-                "setDisplaySize",
-                IBinder::class.java,
-                java.lang.Integer.TYPE,
-                java.lang.Integer.TYPE
-            )
-            setDisplaySizeMethod.isAccessible = true
-            setDisplaySizeMethod.invoke(null, mirrorBinder, width, height)
-
-            // 5. Configure display projection viewport scaling
-            val setDisplayProjectionMethod = SurfaceControl::class.java.getDeclaredMethod(
-                "setDisplayProjection",
-                IBinder::class.java,
-                java.lang.Integer.TYPE,
-                Rect::class.java,
-                Rect::class.java
-            )
-            setDisplayProjectionMethod.isAccessible = true
-            val layerStackRect = Rect(0, 0, width, height)
-            val displayRect = Rect(0, 0, width, height)
-            setDisplayProjectionMethod.invoke(null, mirrorBinder, 0, layerStackRect, displayRect)
-
-            android.util.Log.e("ScreenMirror", "SurfaceControl Hardware Mirroring started successfully!")
+            android.util.Log.e("ScreenMirror", "VirtualDisplay Auto-Mirroring started successfully under Shell package Context!")
         } catch (e: Exception) {
-            android.util.Log.e("ScreenMirror", "Failed to start SurfaceControl mirroring", e)
+            android.util.Log.e("ScreenMirror", "Failed to start VirtualDisplay mirroring", e)
         }
     }
 
     private fun stopCapture() {
-        if (mirrorBinder != null) {
+        if (virtualDisplay != null) {
             try {
-                val destroyDisplayMethod = SurfaceControl::class.java.getDeclaredMethod(
-                    "destroyDisplay", 
-                    IBinder::class.java
-                )
-                destroyDisplayMethod.isAccessible = true
-                destroyDisplayMethod.invoke(null, mirrorBinder)
-                mirrorBinder = null
-                android.util.Log.e("ScreenMirror", "SurfaceControl Mirroring stopped.")
+                virtualDisplay?.release()
+                virtualDisplay = null
+                android.util.Log.e("ScreenMirror", "VirtualDisplay Mirroring stopped.")
             } catch (e: Exception) {
                 e.printStackTrace()
             }
