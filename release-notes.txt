@@ -1,0 +1,13 @@
+﻿Bản phát hành chính thức đầu tiên (Final Release).
+
+🌟 Các tính năng nổi bật:
+- Giao diện Đơn sắc (Monochrome) High-Contrast tối giản, sang trọng.
+- Tích hợp công nghệ 'Diệt Zombie' ngầm, dọn sạch bộ nhớ và triệt tiêu lỗi Soft Reboot kinh điển của Samsung.
+- Lách giới hạn trạng thái màn hình ảo (Virtual Display) bằng lõi Shizuku.
+- Đồng bộ luồng khởi tạo siêu chuẩn, chấm dứt hoàn toàn hiện tượng màn hình đen khi khởi chạy.
+- Cảm ứng 0ms, tương tác đa điểm mượt mà như màn hình chính.
+
+📦 Yêu cầu:
+- Samsung Galaxy Z Flip 5 / Z Flip 6.
+- Android 14 (One UI 6) trở lên.
+- Bật quyền trợ năng hoặc cấp quyền Shizuku.

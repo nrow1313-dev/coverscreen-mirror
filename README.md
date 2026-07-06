@@ -1,43 +1,38 @@
 # Cover Screen Mirror
 
-Ứng dụng hỗ trợ trình chiếu và điều khiển ngược (cảm ứng hai chiều) từ màn hình phụ (Cover Screen) của các thiết bị Samsung Galaxy Z Flip (hỗ trợ tối ưu cho Z Flip 5 / Z Flip 6).
-
----
+Ứng dụng hỗ trợ trình chiếu và điều khiển màn hình chính từ màn hình phụ (Cover Screen) của các thiết bị Samsung Galaxy Z Flip (hỗ trợ tối ưu cho Z Flip 5 / Z Flip 6).
 
 ## 🌟 Tính năng nổi bật
 
-1. **Trình chiếu màn hình trong ra màn ngoài**:
-   - Tự động căn chỉnh đúng tỷ lệ màn hình chính bên trong khi đưa lên màn hình ngoài (không bị méo, biến dạng hình ảnh).
-   - Thiết kế dải phím ảo trợ năng (Stop, Home, Recents, Back) xếp dọc gọn gàng ở khoảng trống màu đen phía bên trái của màn hình phụ, giúp thao tác nhanh mà không che khuất màn hình chính.
+1. **Giao diện Đơn sắc Sang trọng (Premium Monochrome Theme)**:
+   - Giao diện thiết kế phẳng chuẩn High-Contrast, sử dụng tông màu Trắng - Đen - Xám tối giản.
+   - Trải nghiệm thị giác mượt mà, chuyên nghiệp và loại bỏ mọi chi tiết thừa.
 
-2. **Cảm ứng đảo chiều mượt mà**:
-   - Hỗ trợ 2 chế độ điều khiển:
-     - **Dịch vụ trợ năng (Accessibility Service)**: Cảm ứng giả lập chuẩn xác thông qua thao tác vẽ điểm chạm thực (`lineTo`).
-     - **Shizuku (CMD)**: Phản hồi cảm ứng siêu tốc không có độ trễ nhờ quyền Shell hệ thống.
+2. **Hai chế độ hoạt động cực mạnh**:
+   - **Phản chiếu (MediaProjection)**: Trình chiếu màn hình chính ra ngoài thông qua cơ chế ghi hình, hỗ trợ thanh điều hướng ảo (Home, Back, Recents) bên trái.
+   - **Màn Chính (VirtualDisplay + Shizuku)**: Can thiệp sâu vào hệ thống để gọi trực tiếp giao diện gốc lên màn hình phụ, tương tác đa điểm siêu mượt.
 
-3. **Cơ chế gập mở thông minh**:
-   - **Hộp thoại xác nhận Dual Screen**: Tự động hỏi ý kiến khi bắt đầu chiếu để chủ động đánh thức màn hình trong (`cmd device_state state 4`), tránh hiện tượng màn hình phụ bị đen do màn hình chính đang tắt.
-   - **Khoảng trễ ổn định (500ms Delay)**: Đảm bảo phần cứng màn hình và bộ quản lý hiển thị (`WindowManager`) đồng bộ ổn định trước khi kích hoạt `MediaProjection`, loại bỏ hiện tượng chập chờn hay giật hình.
-   - **Giải phóng cảm biến thông minh**: Khôi phục 100% cảm biến gập mở của Samsung ngay khi bạn bấm nút **X (Dừng)**, đóng app hoặc gạt tắt app từ danh sách ứng dụng gần đây (Recents).
+3. **Công nghệ "Diệt Zombie" (Tự động dọn dẹp rác hệ thống)**:
+   - Tự động phát hiện và dọn dẹp các tiến trình ngầm Shizuku bị kẹt (`mirror_service`) từ những lần đóng ứng dụng ngang hoặc sập nguồn trước đó.
+   - Đảm bảo thiết bị luôn giải phóng RAM, chạy ổn định, và đánh bại hoàn toàn lỗi "Tự khởi động lại" (Soft Reboot) kinh điển của Samsung Framework.
 
----
+4. **Đồng bộ Luồng khởi tạo tĩnh**:
+   - Lệnh điều khiển xuất hình ảnh được đồng bộ tuyệt đối với vòng đời của lõi Shizuku. Hệ thống tự động chờ dịch vụ kết nối hoàn tất 100% rồi mới bắt đầu truyền hình, loại bỏ triệt để lỗi "Màn hình đen" lúc khởi chạy.
 
-## 🛠️ Yêu cầu hệ thống
+5. **Lách giới hạn cảm biến gập mở**:
+   - Tự động chèn lệnh `cmd device_state state 4` ngầm để "đánh lừa" hệ thống rằng máy đang được mở, nhằm duy trì chất lượng xuất hình tối đa mà không bị giới hạn bởi tính năng tiết kiệm pin. Hoàn trả trạng thái tức thời khi ấn Dừng.
 
-- Thiết bị: Samsung Galaxy Z Flip (Z Flip 5 / Z Flip 6 khuyến nghị).
-- Hệ điều hành: Android 10 trở lên (Đã tối ưu hóa hoàn toàn cho Android 14 One UI 6).
-- Công cụ bổ sung (tùy chọn): **Shizuku** (nếu muốn dùng chế độ điều khiển độ trễ thấp).
+## 📱 Yêu cầu hệ thống
 
----
+- Thiết bị: Samsung Galaxy Z Flip (Đã test và tối ưu hoàn hảo trên Z Flip 5 / Z Flip 6 chạy One UI 6 / Android 14).
+- Cấp quyền: Trợ năng (Accessibility) hoặc Shizuku (Khuyên dùng Shizuku để đạt độ trễ cảm ứng 0ms).
 
 ## 🚀 Hướng dẫn sử dụng
 
-1. **Khởi động ứng dụng**:
-   - Mở ứng dụng từ màn hình trong (hoặc màn hình ngoài nếu dùng launcher hỗ trợ).
-2. **Chọn chế độ điều khiển**:
-   - Chọn **Trợ năng** hoặc **Shizuku** tùy theo nhu cầu.
-   - Cấp quyền tương ứng theo chỉ dẫn trên màn hình.
-3. **Bắt đầu chiếu**:
-   - Bấm **BẮT ĐẦU TRÌNH CHIẾU** -> Chọn **CÓ** trên popup xác nhận -> Gập máy lại. Màn hình ngoài sẽ tự động kích hoạt và bắt đầu hiển thị.
-4. **Kết thúc trình chiếu**:
-   - Bấm nút **X (màu đỏ)** ở dải phím ảo phía bên trái màn hình ngoài để đóng trình chiếu hoàn toàn và đưa màn phụ về trạng thái bình thường.
+1. Mở ứng dụng từ màn hình trong (hoặc từ Cover Screen nếu có launcher hỗ trợ).
+2. Chọn lõi điều khiển: **Trợ năng** hoặc **Shizuku**.
+3. Chọn tính năng:
+   - **Phản chiếu**: Chạy qua Screen Record.
+   - **Màn Chính**: Gọi trực tiếp hệ thống.
+4. Bấm **Có** ở hộp thoại xác nhận viền tương phản. Gập máy lại và trải nghiệm.
+5. Khi kết thúc, bấm nút **Dừng** để hoàn trả thiết bị về trạng thái gốc.
