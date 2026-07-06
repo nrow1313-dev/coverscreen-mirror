@@ -32,6 +32,38 @@ class CoverScreenActivity : ComponentActivity() {
         var captureMessenger: Messenger? = null
         var isBoundToCapture = false
         var serviceBinder: IBinder? = null
+        var serviceArgs: rikka.shizuku.Shizuku.UserServiceArgs? = null
+        
+        val serviceConnection = object : android.content.ServiceConnection {
+            override fun onServiceConnected(name: android.content.ComponentName?, service: IBinder?) {
+                android.util.Log.e("ScreenMirror", "Shizuku UserService connected!")
+                serviceBinder = service
+                val data = Parcel.obtain()
+                val reply = Parcel.obtain()
+                try {
+                    service?.transact(IBinder.FIRST_CALL_TRANSACTION, data, reply, 0)
+                    val messengerBinder = reply.readStrongBinder()
+                    if (messengerBinder != null) {
+                        captureMessenger = Messenger(messengerBinder)
+                        // Note: we can't easily call instance method sendStartCaptureMessage here.
+                        // It will be called from the Activity's surfaceChanged anyway.
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                } finally {
+                    data.recycle()
+                    reply.recycle()
+                }
+            }
+
+            override fun onServiceDisconnected(name: android.content.ComponentName?) {
+                android.util.Log.e("ScreenMirror", "Shizuku UserService disconnected!")
+                captureMessenger = null
+                isBoundToCapture = false
+                serviceBinder = null
+                serviceArgs = null
+            }
+        }
     }
 
     private var mode = "MIRRORING"
@@ -50,36 +82,6 @@ class CoverScreenActivity : ComponentActivity() {
     private lateinit var surfaceView: SurfaceView
     private var mainWidth = 1080
     private var mainHeight = 2640
-
-    private val serviceConnection = object : android.content.ServiceConnection {
-        override fun onServiceConnected(name: android.content.ComponentName?, service: IBinder?) {
-            android.util.Log.e("ScreenMirror", "Shizuku UserService connected!")
-            serviceBinder = service
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                service?.transact(IBinder.FIRST_CALL_TRANSACTION, data, reply, 0)
-                val messengerBinder = reply.readStrongBinder()
-                if (messengerBinder != null) {
-                    captureMessenger = Messenger(messengerBinder)
-                    if (mode == "SILENT_MIRRORING") {
-                        sendStartCaptureMessage()
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("ScreenMirror", "Failed to retrieve Messenger binder", e)
-            } finally {
-                data.recycle()
-                reply.recycle()
-            }
-        }
-
-        override fun onServiceDisconnected(name: android.content.ComponentName?) {
-            captureMessenger = null
-            isBoundToCapture = false
-            serviceBinder = null
-        }
-    }
 
     private fun sendStartCaptureMessage() {
         val messenger = captureMessenger ?: return
@@ -128,11 +130,24 @@ class CoverScreenActivity : ComponentActivity() {
                     reply.recycle()
                 }
             } else {
-                val msg = Message.obtain(null, 2)
-                messenger.send(msg)
+                android.util.Log.e("ScreenMirror", "Service binder is dead, cannot send stop message")
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        } finally {
+            // COMPLETELY DESTROY THE SHIZUKU PROCESS
+            try {
+                if (isBoundToCapture && serviceArgs != null) {
+                    rikka.shizuku.Shizuku.unbindUserService(serviceArgs!!, serviceConnection, true) // TRUE = destroy process!
+                    android.util.Log.e("ScreenMirror", "Unbound and destroyed Shizuku UserService completely")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            isBoundToCapture = false
+            captureMessenger = null
+            serviceBinder = null
+            serviceArgs = null
         }
     }
 
@@ -326,7 +341,6 @@ class CoverScreenActivity : ComponentActivity() {
                                 val vDisplayId = virtualDisplay?.display?.displayId ?: 1
                                 android.util.Log.e("ScreenMirror", "VirtualDisplay created: ID = $vDisplayId")
                                 
-                                // The automatic launcher start logic has been removed as requested
                             } catch (e: Exception) {
                                 android.util.Log.e("ScreenMirror", "Failed to create VirtualDisplay", e)
                             }
@@ -334,17 +348,22 @@ class CoverScreenActivity : ComponentActivity() {
                     } else if (mode == "SILENT_MIRRORING") {
                         if (!isBoundToCapture) {
                             try {
-                                val serviceArgs = Shizuku.UserServiceArgs(
+                                serviceArgs = rikka.shizuku.Shizuku.UserServiceArgs(
                                     android.content.ComponentName(packageName, ScreenCaptureService::class.java.name)
                                 ).apply {
                                     daemon(false)
                                     processNameSuffix("mirror_service")
                                     debuggable(true)
                                 }
-                                Shizuku.bindUserService(serviceArgs, serviceConnection)
+                                rikka.shizuku.Shizuku.bindUserService(serviceArgs!!, serviceConnection)
                                 isBoundToCapture = true
+                                // After binding, wait a bit and send start message
+                                thread {
+                                    Thread.sleep(500)
+                                    sendStartCaptureMessage()
+                                }
                             } catch (e: Exception) {
-                                android.util.Log.e("ScreenMirror", "Failed to bind Shizuku UserService", e)
+                                e.printStackTrace()
                             }
                         } else {
                             sendStartCaptureMessage()
