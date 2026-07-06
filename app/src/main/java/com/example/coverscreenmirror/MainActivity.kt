@@ -361,7 +361,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
             titleContentColor = Color.Black,
             textContentColor = Color.DarkGray,
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         showMainConfirmDialog = false
                         thread {
@@ -387,17 +387,16 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                                 (activity as? MainActivity)?.launchCoverScreenActivity("SILENT_MIRRORING")
                             }
                         }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0071E3)) // iOS Blue
+                    }
                 ) {
-                    Text("Có", color = Color.White)
+                    Text("Có", color = Color.Black, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = {
                     showMainConfirmDialog = false
                 }) {
-                    Text("Không", color = Color(0xFF0071E3)) // iOS Blue
+                    Text("Không", color = Color.Black)
                 }
             }
         )
@@ -514,7 +513,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             selected = (controlMode == "accessibility"),
                             onClick = { controlMode = "accessibility" },
                             colors = RadioButtonDefaults.colors(
-                                selectedColor = Color(0xFF0A84FF), // iOS style blue
+                                selectedColor = Color.Black, // Monochrome
                                 unselectedColor = Color(0xFFC7C7CC)
                             )
                         )
@@ -534,7 +533,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             selected = (controlMode == "shizuku"),
                             onClick = { controlMode = "shizuku" },
                             colors = RadioButtonDefaults.colors(
-                                selectedColor = Color(0xFF0A84FF),
+                                selectedColor = Color.Black, // Monochrome
                                 unselectedColor = Color(0xFFC7C7CC)
                             )
                         )
@@ -572,7 +571,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             if (shizukuAvailable) {
                                 Button(
                                     onClick = { try { Shizuku.requestPermission(0) } catch (e: Exception) {} },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
                                     shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                                 ) {
@@ -608,7 +607,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                                         Toast.makeText(activity, "Không thể mở cài đặt", Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0A84FF)),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Black),
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
                                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                             ) {
@@ -636,7 +635,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                         .weight(1f)
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0071E3) // Premium blue
+                        containerColor = Color.Black // Monochrome
                     ),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -659,7 +658,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                         .weight(1f)
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF0071E3) // Premium blue
+                        containerColor = Color.Black // Monochrome
                     ),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -680,15 +679,16 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                         .weight(1f)
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF3B30) // Solid Destructive Red
+                        containerColor = Color.White // Monochrome inverted
                     ),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Text(
                         text = "Dừng",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color.White, // White text
+                        color = Color.Black, // Black text
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         maxLines = 1
                     )
