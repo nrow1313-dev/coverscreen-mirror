@@ -288,15 +288,15 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
             onDismissRequest = { showConfirmDialog = false },
             title = {
                 Text(
-                    text = "Xác nhận trình chiếu",
+                    text = "Xác nhận Phản chiếu",
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
-                    color = Color(0xFF1E1E1E)
+                    color = Color.Black
                 )
             },
             text = {
                 Text(
-                    text = "Hệ thống sẽ kích hoạt đồng thời cả hai màn hình (Dual Screen) để truyền tải hình ảnh chính xác. Bạn có muốn bắt đầu?",
-                    color = Color(0xFF616161)
+                    text = "Bạn có muốn khởi động chế độ Phản chiếu không?",
+                    color = Color.DarkGray
                 )
             },
             confirmButton = {
@@ -320,9 +320,9 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
                 ) {
-                    Text("CÓ", color = Color.White)
+                    Text("Có", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -342,12 +342,13 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828))
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black)
                 ) {
-                    Text("KHÔNG", color = Color.White)
+                    Text("Không", color = Color.Black, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             },
-            containerColor = Color(0xEEFFFFFF),
+            containerColor = Color(0xFFF2F2F7), // iOS System Background
             shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
         )
     }
@@ -361,7 +362,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
             titleContentColor = Color.Black,
             textContentColor = Color.DarkGray,
             confirmButton = {
-                TextButton(
+                Button(
                     onClick = {
                         showMainConfirmDialog = false
                         thread {
@@ -387,16 +388,21 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                                 (activity as? MainActivity)?.launchCoverScreenActivity("SILENT_MIRRORING")
                             }
                         }
-                    }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black)
                 ) {
-                    Text("Có", color = Color.Black, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                    Text("Có", color = Color.White, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showMainConfirmDialog = false
-                }) {
-                    Text("Không", color = Color.Black)
+                Button(
+                    onClick = {
+                        showMainConfirmDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.Black)
+                ) {
+                    Text("Không", color = Color.Black, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 }
             }
         )
