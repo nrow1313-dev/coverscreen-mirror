@@ -33,6 +33,7 @@ class CoverScreenActivity : ComponentActivity() {
         var isBoundToCapture = false
         var serviceBinder: IBinder? = null
         var serviceArgs: rikka.shizuku.Shizuku.UserServiceArgs? = null
+        var onServiceConnectedCallback: (() -> Unit)? = null
         
         val serviceConnection = object : android.content.ServiceConnection {
             override fun onServiceConnected(name: android.content.ComponentName?, service: IBinder?) {
@@ -45,8 +46,8 @@ class CoverScreenActivity : ComponentActivity() {
                     val messengerBinder = reply.readStrongBinder()
                     if (messengerBinder != null) {
                         captureMessenger = Messenger(messengerBinder)
-                        // Note: we can't easily call instance method sendStartCaptureMessage here.
-                        // It will be called from the Activity's surfaceChanged anyway.
+                        // Trigger the callback in the Activity
+                        onServiceConnectedCallback?.invoke()
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -254,6 +255,13 @@ class CoverScreenActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         bypassHiddenApiRestrictions()
         super.onCreate(savedInstanceState)
+        
+        onServiceConnectedCallback = {
+            if (mode == "SILENT_MIRRORING") {
+                sendStartCaptureMessage()
+            }
+        }
+
         mode = intent.getStringExtra("MODE") ?: "MIRRORING"
         val currentDisplay = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             this.display
@@ -357,11 +365,6 @@ class CoverScreenActivity : ComponentActivity() {
                                 }
                                 rikka.shizuku.Shizuku.bindUserService(serviceArgs!!, serviceConnection)
                                 isBoundToCapture = true
-                                // After binding, wait a bit and send start message
-                                thread {
-                                    Thread.sleep(500)
-                                    sendStartCaptureMessage()
-                                }
                             } catch (e: Exception) {
                                 e.printStackTrace()
                             }
