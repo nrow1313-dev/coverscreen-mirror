@@ -405,13 +405,13 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
 
     accessibilityEnabled = isAccessibilityServiceEnabled(activity)
 
-    // Premium dark-themed, scrollable and compact layout
+    // Premium light-themed, scrollable and compact layout
     val scrollState = androidx.compose.foundation.rememberScrollState()
     
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF121212)) // Matte Dark Background
+            .background(Color(0xFFF2F2F7)) // iOS Light Background
     ) {
         Column(
             modifier = Modifier
@@ -435,14 +435,14 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                     Text(
                         text = "Mirror Screen",
                         style = MaterialTheme.typography.titleLarge,
-                        color = Color.White,
+                        color = Color.Black,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "Mở màn chính ở bên ngoài",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF8E8E93)
+                        color = Color.DarkGray
                     )
                 }
                 
@@ -487,19 +487,19 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF1C1C1E) // Premium dark gray
+                    containerColor = Color.White // Pure white card
                 ),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
                 border = androidx.compose.foundation.BorderStroke(
                     width = 1.dp,
-                    color = Color(0xFF2C2C2E)
+                    color = Color(0xFFE5E5EA) // Light border
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "CHẾ ĐỘ ĐIỀU KHIỂN",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFE5E5EA),
+                        color = Color.DarkGray,
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         letterSpacing = androidx.compose.ui.unit.TextUnit(1.2f, androidx.compose.ui.unit.TextUnitType.Sp)
                     )
@@ -515,12 +515,12 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             onClick = { controlMode = "accessibility" },
                             colors = RadioButtonDefaults.colors(
                                 selectedColor = Color(0xFF0A84FF), // iOS style blue
-                                unselectedColor = Color(0xFF48484A)
+                                unselectedColor = Color(0xFFC7C7CC)
                             )
                         )
                         Text(
                             text = "Trợ năng",
-                            color = Color.White,
+                            color = Color.Black,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             modifier = Modifier
@@ -535,12 +535,12 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                             onClick = { controlMode = "shizuku" },
                             colors = RadioButtonDefaults.colors(
                                 selectedColor = Color(0xFF0A84FF),
-                                unselectedColor = Color(0xFF48484A)
+                                unselectedColor = Color(0xFFC7C7CC)
                             )
                         )
                         Text(
                             text = "Shizuku",
-                            color = Color.White,
+                            color = Color.Black,
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             modifier = Modifier
@@ -552,7 +552,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                     // Dynamic warning and settings triggers
                     if (controlMode == "shizuku" && (!shizukuAvailable || !hasShizukuPermission)) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        androidx.compose.material3.HorizontalDivider(color = Color(0xFF2C2C2E))
+                        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5EA))
                         Spacer(modifier = Modifier.height(12.dp))
                         
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -582,7 +582,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                         }
                     } else if (controlMode == "accessibility" && !accessibilityEnabled) {
                         Spacer(modifier = Modifier.height(12.dp))
-                        androidx.compose.material3.HorizontalDivider(color = Color(0xFF2C2C2E))
+                        androidx.compose.material3.HorizontalDivider(color = Color(0xFFE5E5EA))
                         Spacer(modifier = Modifier.height(12.dp))
                         
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -636,7 +636,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                         .weight(1f)
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF1D1D1F) // Matte Dark Gray
+                        containerColor = Color(0xFF0071E3) // Premium blue
                     ),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp)
@@ -680,16 +680,15 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                         .weight(1f)
                         .height(48.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE8E8ED) // Light Gray
+                        containerColor = Color(0xFFFF3B30) // Solid Destructive Red
                     ),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFD2D2D7)),
                     contentPadding = PaddingValues(horizontal = 4.dp)
                 ) {
                     Text(
                         text = "Dừng",
                         style = MaterialTheme.typography.labelMedium,
-                        color = Color(0xFFFF3B30), // Destructive Red
+                        color = Color.White, // White text
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         maxLines = 1
                     )
