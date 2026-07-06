@@ -215,6 +215,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
     var accessibilityEnabled by remember { mutableStateOf(isAccessibilityServiceEnabled(activity)) }
 
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var showMainConfirmDialog by remember { mutableStateOf(false) }
     var targetGoToHome by remember { mutableStateOf(false) }
 
     LaunchedEffect(controlMode) {
@@ -348,6 +349,57 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
             },
             containerColor = Color(0xEEFFFFFF),
             shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+        )
+    }
+
+    if (showMainConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showMainConfirmDialog = false },
+            title = { Text("Xác nhận Màn Chính") },
+            text = { Text("Bạn có muốn khởi động chế độ Màn Chính không? Tính năng này sẽ tự động dọn dẹp hệ thống trước khi chạy để tránh lỗi.") },
+            containerColor = Color(0xFFF2F2F7), // iOS System Background
+            titleContentColor = Color.Black,
+            textContentColor = Color.DarkGray,
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showMainConfirmDialog = false
+                        thread {
+                            try {
+                                if (Shizuku.pingBinder()) {
+                                    val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
+                                    method.isAccessible = true
+                                    
+                                    // 1. Cleanup zombies
+                                    val cleanupProc = method.invoke(null, arrayOf("sh", "-c", "pkill -f mirror_service"), null, null) as Process
+                                    cleanupProc.waitFor()
+                                    Thread.sleep(200)
+
+                                    // 2. Unfold state
+                                    val proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
+                                    proc.waitFor()
+                                    Thread.sleep(500)
+                                }
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                            activity.runOnUiThread {
+                                (activity as? MainActivity)?.launchCoverScreenActivity("SILENT_MIRRORING")
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0071E3)) // iOS Blue
+                ) {
+                    Text("Có", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showMainConfirmDialog = false
+                }) {
+                    Text("Không", color = Color(0xFF0071E3)) // iOS Blue
+                }
+            }
         )
     }
 
@@ -601,22 +653,7 @@ fun AppScreen(activity: ComponentActivity, onStartMirror: (Boolean) -> Unit, onS
                 // Button 2: Màn Chính
                 Button(
                     onClick = {
-                        thread {
-                            try {
-                                if (Shizuku.pingBinder()) {
-                                    val method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess", Array<String>::class.java, Array<String>::class.java, String::class.java)
-                                    method.isAccessible = true
-                                    val proc = method.invoke(null, arrayOf("sh", "-c", "cmd device_state state 4"), null, null) as Process
-                                    proc.waitFor()
-                                    Thread.sleep(500)
-                                }
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                            activity.runOnUiThread {
-                                (activity as? MainActivity)?.launchCoverScreenActivity("SILENT_MIRRORING")
-                            }
-                        }
+                        showMainConfirmDialog = true
                     },
                     modifier = Modifier
                         .weight(1f)
